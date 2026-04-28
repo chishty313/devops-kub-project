@@ -35,9 +35,24 @@ PUBKEY_FILE="${PUBKEY_FILE:-$HOME/.ssh/id_ed25519.pub}"
 # ---- Make sure multipass + qemu driver are installed ----
 if ! command -v multipass >/dev/null 2>&1; then
     echo "[multipass] Installing multipass via snap ..."
-    sudo snap install multipass --classic
+    sudo snap install multipass
 fi
 sudo multipass set local.driver=qemu || true
+
+# ---- Authentication (multipass 1.13+: per-client passphrase handshake) ----
+if ! multipass list >/dev/null 2>&1; then
+    cat <<'EOM' >&2
+
+ERROR: Multipass is installed but this shell isn't authenticated to the daemon.
+Multipass 1.13+ requires a one-time passphrase handshake. Run these once:
+
+    sudo multipass set local.passphrase=devops2026
+    multipass authenticate devops2026
+
+Then re-run this script.
+EOM
+    exit 1
+fi
 
 # ---- Generate SSH key for the host -> VM access if missing ----
 if [[ ! -f "${PUBKEY_FILE}" ]]; then
@@ -47,7 +62,9 @@ fi
 PUBKEY="$(cat "${PUBKEY_FILE}")"
 
 # ---- Cloud-init payload (shared by all VMs) ----
-CLOUDINIT="$(mktemp)"
+# IMPORTANT: must live under $HOME (NOT /tmp) because the strictly-confined
+# multipass snap can only read non-hidden files in the user's home directory.
+CLOUDINIT="${ROOT}/cluster-cloud-init.yaml"
 cat >"${CLOUDINIT}" <<EOF
 #cloud-config
 package_update: true
