@@ -1,0 +1,47 @@
+# EditorConfig — http://editorconfig.org
+# Keeps formatting consistent across editors / contributors.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Markdown lets trailing whitespace be meaningful (line breaks)
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+# YAML / Helm / GitHub Actions are 2-space by convention
+[*.{yaml,yml}]
+indent_size = 2
+
+# JSON / package files
+[*.{json,jsonc}]
+indent_size = 2
+
+# Shell scripts
+[*.sh]
+indent_size = 4
+
+# Dockerfile
+[{Dockerfile,Dockerfile.*}]
+indent_size = 4
+
+# Composer / npm metadata
+[composer.json]
+indent_size = 4
+[package.json]
+indent_size = 2
+
+# PHP defaults to PSR-12 (4 spaces)
+[*.{php,blade.php}]
+indent_size = 4
+
+# Makefiles MUST use tabs
+[Makefile]
+indent_style = tab

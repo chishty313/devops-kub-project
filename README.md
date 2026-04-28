@@ -1,4 +1,18 @@
-# Laravel on Kubernetes — DevOps Home Assignment
+<h1 align="center">Laravel on Kubernetes — DevOps Home Assignment</h1>
+
+<p align="center">
+  <a href="https://github.com/chishty313/devops-kub-project/actions/workflows/ci.yaml">
+    <img src="https://github.com/chishty313/devops-kub-project/actions/workflows/ci.yaml/badge.svg?branch=main" alt="CI" />
+  </a>
+  <a href="https://hub.docker.com/r/src313/laravel-k8s">
+    <img src="https://img.shields.io/docker/v/src313/laravel-k8s?label=docker.io%2Fsrc313%2Flaravel-k8s&logo=docker&logoColor=white&color=2496ED" alt="Docker image" />
+  </a>
+  <img src="https://img.shields.io/badge/kubernetes-1.30-326CE5?logo=kubernetes&logoColor=white" alt="Kubernetes 1.30" />
+  <img src="https://img.shields.io/badge/helm-3-0F1689?logo=helm&logoColor=white" alt="Helm 3" />
+  <img src="https://img.shields.io/badge/laravel-11-FF2D20?logo=laravel&logoColor=white" alt="Laravel 11" />
+  <img src="https://img.shields.io/badge/php-8.3-777BB4?logo=php&logoColor=white" alt="PHP 8.3" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+</p>
 
 > Deploy a Laravel 11 application on a self-built **HA kubeadm** cluster
 > (3 control-plane + 2 worker nodes), packaged as a multi-stage Docker
@@ -549,6 +563,12 @@ What would change for a real production deployment, beyond this assignment:
 |                   | External database / Redis configuration                    |   ✅   |
 
 Legend: ✅ done in repo · ⏳ done at runtime on the VM (proven by screenshots).
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE). © 2026 Nifty.
 
 ---
 
