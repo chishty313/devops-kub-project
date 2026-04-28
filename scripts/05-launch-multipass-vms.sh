@@ -29,7 +29,7 @@ CP_DISK="${CP_DISK:-12G}"
 W_CPUS="${W_CPUS:-2}"
 W_MEM="${W_MEM:-2500M}"
 W_DISK="${W_DISK:-12G}"
-UBUNTU_RELEASE="${UBUNTU_RELEASE:-22.04}"
+UBUNTU_RELEASE="${UBUNTU_RELEASE:-jammy}"   # codename (jammy=22.04, noble=24.04). Multipass 1.16 dislikes "22.04" alone.
 PUBKEY_FILE="${PUBKEY_FILE:-$HOME/.ssh/id_ed25519.pub}"
 
 # ---- Make sure multipass + qemu driver are installed ----
