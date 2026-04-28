@@ -39,19 +39,15 @@ if ! command -v multipass >/dev/null 2>&1; then
 fi
 sudo multipass set local.driver=qemu || true
 
-# ---- Authentication (multipass 1.13+: per-client passphrase handshake) ----
+# ---- Authentication hint (multipass 1.13+ uses a per-client passphrase) ----
+# We don't gate-keep here. If auth is missing, `multipass launch` below will
+# report it with a precise error message; we just print a one-liner hint.
 if ! multipass list >/dev/null 2>&1; then
     cat <<'EOM' >&2
-
-ERROR: Multipass is installed but this shell isn't authenticated to the daemon.
-Multipass 1.13+ requires a one-time passphrase handshake. Run these once:
-
+[hint] If the launches below fail with an auth error, run once and re-execute:
     sudo multipass set local.passphrase=devops2026
     multipass authenticate devops2026
-
-Then re-run this script.
 EOM
-    exit 1
 fi
 
 # ---- Generate SSH key for the host -> VM access if missing ----
