@@ -1,0 +1,23 @@
+{{- if .Values.persistence.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "laravel-k8s.pvcName" . }}
+  namespace: {{ include "laravel-k8s.namespace" . }}
+  labels:
+    {{- include "laravel-k8s.labels" . | nindent 4 }}
+  annotations:
+    # Don't delete the PVC when the release is removed -- the storage may
+    # contain user uploads. Use `helm uninstall` then `kubectl delete pvc`
+    # explicitly when you really mean to drop data.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | quote }}
+  {{- if .Values.persistence.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName | quote }}
+  {{- end }}
+{{- end -}}

@@ -1,0 +1,56 @@
+# ----- OS / editor -----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ----- Laravel application (lives under src/) -----
+# We ignore the heavy bits but keep the project skeleton itself.
+src/vendor/
+src/node_modules/
+src/.env
+src/.env.backup
+src/.phpunit.result.cache
+src/storage/*.key
+src/storage/logs/*
+src/storage/framework/cache/data/*
+src/storage/framework/sessions/*
+src/storage/framework/views/*
+src/storage/framework/testing/*
+src/bootstrap/cache/*.php
+src/public/storage
+src/public/hot
+
+# Keep .gitkeep files inside ignored dirs
+!src/storage/logs/.gitkeep
+!src/storage/framework/cache/data/.gitkeep
+!src/storage/framework/sessions/.gitkeep
+!src/storage/framework/views/.gitkeep
+!src/bootstrap/cache/.gitkeep
+
+# ----- Build artefacts / local secrets -----
+*.log
+*.tar.gz
+*.tgz
+*.kubeconfig
+kubeconfig*
+admin.conf
+*.pem
+*.key
+*.crt
+secrets.local.yaml
+values.local.yaml
+.env
+.env.*
+!.env.example
+
+# ----- Helm -----
+helm/**/charts/
+helm/**/Chart.lock
+
+# ----- macOS / icloud / temp -----
+.Spotlight-V100
+.Trashes

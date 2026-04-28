@@ -1,0 +1,87 @@
+# -----------------------------------------------------------------------------
+# Production overrides used for the live deployment at laravel.chishty.me.
+# Copy to `values.local.yaml` (gitignored), drop in your APP_KEY, and run:
+#   helm upgrade --install laravel ./helm/laravel-k8s -f values.local.yaml
+# -----------------------------------------------------------------------------
+
+image:
+  repository: src313/laravel-k8s
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: laravel-test.local                # assignment-required, /etc/hosts
+      paths:
+        - { path: /, pathType: Prefix }
+    - host: laravel.chishty.me                # public live demo
+      paths:
+        - { path: /, pathType: Prefix }
+  tls:
+    enabled: true                             # cert-manager + Let's Encrypt
+    clusterIssuer: letsencrypt-prod
+    secretName: laravel-tls
+    hosts:
+      - laravel.chishty.me                    # only the public host gets TLS
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"   # /etc/hosts host stays HTTP
+
+# REQUIRED. Generate once and paste here:
+#   echo "base64:$(openssl rand -base64 32)"
+secret:
+  appKey: "base64:REPLACE_ME_WITH_REAL_KEY"
+  extra: {}
+
+config:
+  APP_NAME: "Laravel K8s"
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  APP_URL: "https://laravel.chishty.me"
+  LOG_CHANNEL: "stderr"
+  LOG_LEVEL: "info"
+  CACHE_DRIVER: "file"
+  SESSION_DRIVER: "file"
+  QUEUE_CONNECTION: "sync"
+  DB_CONNECTION: "sqlite"
+
+persistence:
+  enabled: true
+  size: 1Gi
+  accessMode: ReadWriteOnce
+  storageClassName: ""        # "" = default class (local-path on kubeadm)
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+queue:
+  enabled: false   # flip to true if you switch QUEUE_CONNECTION to redis
+
+scheduler:
+  enabled: false
+
+networkPolicy:
+  enabled: true
+
+# Spread web pods across both worker nodes for visible HA.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: laravel-k8s
+        app.kubernetes.io/instance: laravel
+        app.kubernetes.io/component: web

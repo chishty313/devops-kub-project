@@ -1,0 +1,37 @@
+# Keep the build context as small as possible. Only `src/` (Laravel app) and
+# `docker/` (container configs) are needed by the Dockerfile.
+
+# Default: ignore everything
+**
+
+# Then re-include what the Dockerfile copies
+!src/**
+!docker/**
+
+# Even inside src/, drop heavy/leaky bits
+src/.env
+src/.env.*
+!src/.env.example
+src/vendor/
+src/node_modules/
+src/storage/logs/*
+!src/storage/logs/.gitkeep
+src/storage/framework/cache/data/*
+!src/storage/framework/cache/data/.gitkeep
+src/storage/framework/sessions/*
+!src/storage/framework/sessions/.gitkeep
+src/storage/framework/views/*
+!src/storage/framework/views/.gitkeep
+src/bootstrap/cache/*.php
+src/public/storage
+src/.phpunit.result.cache
+src/tests/
+src/.git
+src/.gitignore
+src/.editorconfig
+src/.styleci.yml
+src/README.md
+src/phpunit.xml
+src/.github
+**/*.md
+**/.DS_Store

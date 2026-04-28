@@ -1,0 +1,41 @@
+apiVersion: v2
+name: laravel-k8s
+description: |
+  Production-style Helm chart for the Laravel Kubernetes Deployment Test
+  application. Renders Namespace, Deployment, Service, Ingress, ConfigMap,
+  Secret, PVC, HPA, PDB, NetworkPolicy, queue worker, scheduler CronJob
+  and a migration Job (Helm hook).
+
+type: application
+
+# Chart version is bumped when *templates* change.
+version: 0.1.0
+
+# appVersion tracks the version of the Laravel image we expect to deploy.
+appVersion: "1.0.0"
+
+kubeVersion: ">=1.27.0-0"
+
+home: https://github.com/chishty313/devops-kub-project
+sources:
+  - https://github.com/chishty313/devops-kub-project
+
+maintainers:
+  - name: Nifty
+    email: developers@niftyitsolution.com
+
+keywords:
+  - laravel
+  - php
+  - kubernetes
+  - helm
+  - kubeadm
+
+# We don't depend on any subcharts by default; redis can be enabled
+# explicitly by adding the bitnami repo and uncommenting below.
+#
+# dependencies:
+#   - name: redis
+#     version: "20.x.x"
+#     repository: "https://charts.bitnami.com/bitnami"
+#     condition: redis.enabled

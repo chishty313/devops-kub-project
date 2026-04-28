@@ -1,0 +1,61 @@
+{{- if .Values.scheduler.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "laravel-k8s.fullname" . }}-scheduler
+  namespace: {{ include "laravel-k8s.namespace" . }}
+  labels:
+    {{- include "laravel-k8s.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  schedule: {{ .Values.scheduler.schedule | quote }}
+  concurrencyPolicy: {{ .Values.scheduler.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.scheduler.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.scheduler.failedJobsHistoryLimit }}
+  startingDeadlineSeconds: 60
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "laravel-k8s.labels" . | nindent 8 }}
+        app.kubernetes.io/component: scheduler
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 300
+      template:
+        metadata:
+          labels:
+            {{- include "laravel-k8s.labels" . | nindent 12 }}
+            app.kubernetes.io/component: scheduler
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ include "laravel-k8s.serviceAccountName" . }}
+          {{- include "laravel-k8s.imagePullSecrets" . | nindent 10 }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: scheduler
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["php", "artisan", "schedule:run"]
+              envFrom:
+                {{- include "laravel-k8s.envFrom" . | nindent 16 }}
+              resources:
+                {{- toYaml .Values.scheduler.resources | nindent 16 }}
+              securityContext:
+                {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+              volumeMounts:
+                {{- if .Values.persistence.enabled }}
+                - name: storage
+                  mountPath: {{ .Values.persistence.mountPath }}
+                {{- end }}
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            {{- if .Values.persistence.enabled }}
+            - name: storage
+              persistentVolumeClaim:
+                claimName: {{ include "laravel-k8s.pvcName" . }}
+            {{- end }}
+            - name: tmp
+              emptyDir: {}
+{{- end -}}

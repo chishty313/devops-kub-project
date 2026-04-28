@@ -1,0 +1,50 @@
+{{- if .Values.ingress.enabled -}}
+{{- /*
+Resolve the list of hosts:
+  - If `.Values.ingress.hosts` is non-empty, use it (preferred shape).
+  - Else fall back to the single-host `.Values.ingress.host`.
+*/ -}}
+{{- $hosts := .Values.ingress.hosts | default (list) -}}
+{{- if not $hosts -}}
+{{- $hosts = list (dict "host" .Values.ingress.host "paths" (list (dict "path" .Values.ingress.path "pathType" .Values.ingress.pathType))) -}}
+{{- end -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "laravel-k8s.fullname" . }}
+  namespace: {{ include "laravel-k8s.namespace" . }}
+  labels:
+    {{- include "laravel-k8s.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if and .Values.ingress.tls.enabled .Values.ingress.tls.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.tls.clusterIssuer | quote }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        {{- range (.Values.ingress.tls.hosts | default (list .Values.ingress.host)) }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    {{- range $hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "laravel-k8s.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end -}}

@@ -1,0 +1,26 @@
+==========================================================================
+{{ include "laravel-k8s.fullname" . }} deployed in namespace {{ include "laravel-k8s.namespace" . }}
+==========================================================================
+
+Image:        {{ .Values.image.repository }}:{{ .Values.image.tag }}
+Replicas:     {{ if .Values.hpa.enabled }}HPA managed ({{ .Values.hpa.minReplicas }}-{{ .Values.hpa.maxReplicas }}){{ else }}{{ .Values.replicaCount }}{{ end }}
+Ingress host: {{ .Values.ingress.host }}{{ if .Values.ingress.tls.enabled }}  (TLS via {{ .Values.ingress.tls.clusterIssuer }}){{ end }}
+
+Quick checks
+------------
+  kubectl -n {{ include "laravel-k8s.namespace" . }} get pods,svc,ingress,pvc
+  kubectl -n {{ include "laravel-k8s.namespace" . }} logs deploy/{{ include "laravel-k8s.fullname" . }}
+  kubectl -n {{ include "laravel-k8s.namespace" . }} rollout status deploy/{{ include "laravel-k8s.fullname" . }}
+
+Test from your laptop / VM host
+-------------------------------
+  echo "<NODE_IP>  {{ .Values.ingress.host }}" | sudo tee -a /etc/hosts
+  curl -i http://{{ .Values.ingress.host }}/
+  curl -i http://{{ .Values.ingress.host }}/health
+
+If the ingress controller is on a NodePort (e.g. 30080), use:
+  curl -i -H "Host: {{ .Values.ingress.host }}" http://<NODE_IP>:30080/health
+
+Migration job (if enabled) is run automatically on install/upgrade.
+Check it with:
+  kubectl -n {{ include "laravel-k8s.namespace" . }} get jobs

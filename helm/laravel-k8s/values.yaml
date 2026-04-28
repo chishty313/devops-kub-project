@@ -1,0 +1,242 @@
+# ---------------------------------------------------------------------------
+# laravel-k8s — default values.yaml
+# Override anything here with `helm install -f values.local.yaml` or `--set`.
+# ---------------------------------------------------------------------------
+
+# Container image. Pinned to the Docker Hub repo we publish to.
+image:
+  repository: src313/laravel-k8s
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+  # If pulling from a private registry, set the names of pre-created
+  # docker-registry Secrets here. The chart will ALSO render a Secret
+  # for you when imagePullSecret.create=true (see below).
+  pullSecrets: []
+
+# Optionally render a docker-registry Secret in this namespace.
+# Useful for the "private registry secret" bonus task.
+imagePullSecret:
+  create: false
+  name: regcred
+  registry: https://index.docker.io/v1/
+  username: ""
+  password: ""
+  email: ""
+
+# Namespace the chart deploys into. If create=true the chart renders
+# the Namespace resource itself.
+namespace:
+  create: true
+  name: laravel
+
+# How many web pods. HPA can override this dynamically.
+replicaCount: 2
+
+# Resource requests / limits for the web container. Keep sane defaults
+# small enough that they fit a tight VM, but big enough that Laravel boots.
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    cpu: 500m
+    memory: 384Mi
+
+# Pod-level securityContext.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level securityContext (applied to web, queue, scheduler).
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  readOnlyRootFilesystem: false  # Laravel writes to /var/www/html/{storage,bootstrap/cache}
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop: ["ALL"]
+
+# Probes — endpoint is /health, returns 200 with no DB calls.
+probes:
+  liveness:
+    enabled: true
+    path: /health
+    port: http
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    path: /health
+    port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  startup:
+    enabled: true
+    path: /health
+    port: http
+    periodSeconds: 5
+    failureThreshold: 30          # 30*5s = 150s grace for very slow boots
+
+# Service in front of the web pods.
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# Ingress in front of the Service.
+# Supports multiple hosts on the same Ingress so we can serve both the
+# assignment-required `laravel-test.local` (via /etc/hosts) AND the live
+# public hostname `laravel.chishty.me` from a single object.
+ingress:
+  enabled: true
+  className: nginx
+  # Legacy single-host knob: kept for back-compat. If `hosts` is set
+  # (non-empty), it wins over `host`.
+  host: laravel-test.local
+  path: /
+  pathType: Prefix
+  hosts:
+    - host: laravel-test.local
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: laravel.chishty.me
+      paths:
+        - path: /
+          pathType: Prefix
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  tls:
+    enabled: false
+    # When enabled, TLS is provisioned via cert-manager. Only the public
+    # hostname goes into the TLS block — Let's Encrypt can't sign
+    # `*.local` names. The `*.local` host stays HTTP only.
+    secretName: laravel-tls
+    clusterIssuer: letsencrypt-prod
+    hosts:
+      - laravel.chishty.me
+
+# Persistent storage for `storage/` (Laravel uploads, framework cache, logs).
+persistence:
+  enabled: true
+  storageClassName: ""        # "" lets the cluster default class take over
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /var/www/html/storage
+
+# Non-secret app config -> ConfigMap.
+config:
+  APP_NAME: "Laravel K8s"
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  APP_URL: "https://laravel.chishty.me"
+  LOG_CHANNEL: "stderr"
+  LOG_LEVEL: "info"
+  CACHE_DRIVER: "file"
+  SESSION_DRIVER: "file"
+  QUEUE_CONNECTION: "sync"
+  FILESYSTEM_DISK: "local"
+  DB_CONNECTION: "sqlite"
+
+# Sensitive app config -> Secret. APP_KEY is required.
+# Provide via:  helm install -f secrets.local.yaml ...
+# Or generate at install time with --set secret.appKey="$(...)".
+# NEVER commit a real APP_KEY to git.
+secret:
+  # base64:....  -- generate with:  echo "base64:$(openssl rand -base64 32)"
+  appKey: ""
+  # Optional extra keys merged into the same Secret (string -> string).
+  extra: {}
+    # DB_PASSWORD: "changeme"
+    # REDIS_PASSWORD: "changeme"
+
+# Migration Job (post-install / pre-upgrade Helm hook).
+migration:
+  enabled: true
+  command: ["php", "artisan", "migrate", "--force"]
+  # If you also want seeders, set seed=true.
+  seed: false
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 600
+
+# HPA for the web deployment.
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# PodDisruptionBudget for the web deployment.
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# NetworkPolicy: by default we allow ingress traffic only from the
+# ingress-nginx namespace, and allow all egress (DNS, registry, DB, etc.).
+networkPolicy:
+  enabled: true
+  ingressNamespaceSelector:
+    kubernetes.io/metadata.name: ingress-nginx
+
+# Queue worker — separate deployment so it can scale and restart
+# independently from the web.
+queue:
+  enabled: false
+  replicaCount: 1
+  command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Scheduler — kubernetes CronJob that runs `php artisan schedule:run`
+# every minute (the Laravel-recommended cadence).
+scheduler:
+  enabled: false
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 200m
+      memory: 192Mi
+
+# ServiceAccount used by all pods.
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Pod scheduling controls.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+priorityClassName: ""
+
+# Spread pods across nodes when possible.
+topologySpreadConstraints: []
+
+# Extra annotations / labels applied to every rendered object.
+commonLabels: {}
+commonAnnotations: {}

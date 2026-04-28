@@ -1,0 +1,71 @@
+{{- if .Values.migration.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Unique name per Helm revision so old jobs don't collide.
+  name: {{ include "laravel-k8s.fullname" . }}-migrate-{{ .Release.Revision }}
+  namespace: {{ include "laravel-k8s.namespace" . }}
+  labels:
+    {{- include "laravel-k8s.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    # Run after the Secret/ConfigMap exist (post-install) and before the new
+    # Deployment rollout (pre-upgrade). Delete on success.
+    "helm.sh/hook": post-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.migration.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "laravel-k8s.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "laravel-k8s.serviceAccountName" . }}
+      {{- include "laravel-k8s.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              cd /var/www/html
+              php artisan migrate --force
+              {{- if .Values.migration.seed }}
+              php artisan db:seed --force
+              {{- end }}
+          envFrom:
+            {{- include "laravel-k8s.envFrom" . | nindent 12 }}
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: storage
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "laravel-k8s.pvcName" . }}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+{{- end -}}

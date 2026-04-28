@@ -1,0 +1,64 @@
+# Helm values for installing ingress-nginx on a kubeadm cluster where the
+# host VM is already serving 80/443 with another nginx/apache.
+#
+# Strategy: expose the controller as a NodePort on 30080 (HTTP) and 30443
+# (HTTPS), then let the host's existing nginx/apache reverse-proxy
+# `laravel-test.local` and `laravel.chishty.me` to those node ports.
+#
+# Install:
+#   helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+#   helm repo update
+#   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+#       --namespace ingress-nginx --create-namespace \
+#       -f k8s/ingress-nginx-values.yaml
+
+controller:
+  replicaCount: 1
+
+  ingressClassResource:
+    name: nginx
+    enabled: true
+    default: true
+
+  service:
+    type: NodePort
+    nodePorts:
+      http: 30080
+      https: 30443
+
+  # Trust the X-Forwarded-* headers from the host's reverse proxy.
+  config:
+    use-forwarded-headers: "true"
+    compute-full-forwarded-for: "true"
+    proxy-body-size: "32m"
+    use-proxy-protocol: "false"
+
+  # Resource sizing for a small VM cluster.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Make sure the controller can be scheduled on the single worker (and on
+  # the control-plane too if it's been untainted in single-node mode).
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+
+  # Prometheus scrape friendly (optional)
+  metrics:
+    enabled: false
+
+  # Don't try to create a LoadBalancer; we have no cloud LB.
+  publishService:
+    enabled: false
+
+  # Single-node admission webhook timing
+  admissionWebhooks:
+    enabled: true
+    failurePolicy: Ignore
+    timeoutSeconds: 30
