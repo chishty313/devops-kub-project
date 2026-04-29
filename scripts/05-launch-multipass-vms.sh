@@ -32,12 +32,17 @@ W_DISK="${W_DISK:-12G}"
 UBUNTU_RELEASE="${UBUNTU_RELEASE:-release:jammy}"   # FULLY QUALIFIED. Multipass 1.16 'launch' refuses bare aliases; 'find' resolves them but 'launch' needs the explicit "<remote>:<alias>" form.
 PUBKEY_FILE="${PUBKEY_FILE:-$HOME/.ssh/id_ed25519.pub}"
 
-# ---- Make sure multipass + qemu driver are installed ----
+# ---- Make sure multipass is installed ----
 if ! command -v multipass >/dev/null 2>&1; then
     echo "[multipass] Installing multipass via snap ..."
     sudo snap install multipass
 fi
-sudo multipass set local.driver=qemu || true
+# NOTE: deliberately NOT calling `sudo multipass set local.driver=qemu`. On
+# Linux qemu is already the default. Running multipass via sudo creates a
+# separate (unauthenticated) root client which can corrupt daemon state
+# and cause subsequent launches to fail with confusing "Remote unreachable"
+# errors. If you ever truly need to switch driver, do it manually as the
+# regular user once: `multipass set local.driver=qemu`.
 
 # ---- Authentication hint (multipass 1.13+ uses a per-client passphrase) ----
 # We don't gate-keep here. If auth is missing, `multipass launch` below will
