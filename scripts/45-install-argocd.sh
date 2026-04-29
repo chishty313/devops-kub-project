@@ -21,6 +21,7 @@ echo "[argocd] Installing chart ..."
 helm upgrade --install argocd argo/argo-cd \
     --namespace argocd --create-namespace \
     --version 7.6.12 \
+    --set configs.cm.url=https://argocd.chishty.me \
     --set configs.params."server\.insecure"=true \
     --set server.ingress.enabled=true \
     --set server.ingress.ingressClassName=nginx \
