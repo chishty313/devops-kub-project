@@ -23,10 +23,15 @@ imagePullSecret:
   password: ""
   email: ""
 
-# Namespace the chart deploys into. If create=true the chart renders
-# the Namespace resource itself.
+# Namespace the chart deploys into.
+# We default to create=false because Helm 3 needs the namespace to exist
+# *before* it can write its release-tracking Secret into it. Use Helm's
+# `--create-namespace` flag (which our scripts/40-install-helm-release.sh
+# does) and let Helm own the namespace lifecycle. Set this to true only if
+# you want Helm to also render a Namespace resource (e.g. for declarative
+# label management) and you've already pre-created the namespace.
 namespace:
-  create: true
+  create: false
   name: laravel
 
 # How many web pods. HPA can override this dynamically.

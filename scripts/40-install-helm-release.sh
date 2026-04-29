@@ -24,11 +24,13 @@ EOF
 fi
 
 echo "[helm] Installing/upgrading release '${RELEASE}' in ns '${NAMESPACE}' ..."
-# NOTE: deliberately NO --create-namespace. Our chart's templates/namespace.yaml
-# already creates it (with our labels/annotations). Using both causes a
-# "namespaces already exists" conflict at apply time.
+# Helm 3 writes its release-tracking Secret into the release namespace
+# *before* running pre-install hooks, so the namespace must exist first.
+# `--create-namespace` handles that. Our chart's values.yaml has
+# namespace.create=false so the chart's namespace template doesn't fight
+# Helm for ownership.
 helm upgrade --install "${RELEASE}" "${ROOT}/helm/laravel-k8s" \
-    --namespace "${NAMESPACE}" \
+    --namespace "${NAMESPACE}" --create-namespace \
     -f "${VALUES_FILE}" \
     -f "${SECRETS_FILE}" \
     --wait --timeout 5m
