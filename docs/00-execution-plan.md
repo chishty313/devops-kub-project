@@ -145,11 +145,12 @@ and a list with `cp1   Ready   control-plane`.
 ### Step 2.5 · 🔧 cp2 + cp3: join as control-plane  *(⏱ ~6 m)*
 
 ```bash
-multipass exec cp1 -- sudo cat /root/kubeadm-join-cp.sh     > /tmp/cp.sh
-multipass exec cp1 -- sudo cat /root/kubeadm-join-worker.sh > /tmp/w.sh
+multipass exec cp1 -- sudo cat /root/kubeadm-join-cp.sh     > ~/kubeadm-join-cp.sh
+multipass exec cp1 -- sudo cat /root/kubeadm-join-worker.sh > ~/kubeadm-join-worker.sh
+chmod 755 ~/kubeadm-join-cp.sh ~/kubeadm-join-worker.sh
 
 for n in cp2 cp3; do
-    multipass transfer /tmp/cp.sh                       "$n:/tmp/kubeadm-join-cp.sh"
+    multipass transfer ~/kubeadm-join-cp.sh             "$n:/tmp/kubeadm-join-cp.sh"
     multipass transfer scripts/15-join-control-plane.sh "$n:/tmp/15.sh"
     multipass exec "$n" -- sudo CONTROL_PLANE_VIP="$CONTROL_PLANE_VIP" bash /tmp/15.sh
 done
@@ -163,8 +164,8 @@ Expect 3 control-plane nodes, all `Ready`.
 
 ```bash
 for n in w1 w2; do
-    multipass transfer /tmp/w.sh                  "$n:/tmp/kubeadm-join-worker.sh"
-    multipass transfer scripts/20-join-worker.sh  "$n:/tmp/20.sh"
+    multipass transfer ~/kubeadm-join-worker.sh  "$n:/tmp/kubeadm-join-worker.sh"
+    multipass transfer scripts/20-join-worker.sh "$n:/tmp/20.sh"
     multipass exec "$n" -- sudo bash /tmp/20.sh
 done
 
