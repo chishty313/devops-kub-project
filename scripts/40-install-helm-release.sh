@@ -24,8 +24,11 @@ EOF
 fi
 
 echo "[helm] Installing/upgrading release '${RELEASE}' in ns '${NAMESPACE}' ..."
+# NOTE: deliberately NO --create-namespace. Our chart's templates/namespace.yaml
+# already creates it (with our labels/annotations). Using both causes a
+# "namespaces already exists" conflict at apply time.
 helm upgrade --install "${RELEASE}" "${ROOT}/helm/laravel-k8s" \
-    --namespace "${NAMESPACE}" --create-namespace \
+    --namespace "${NAMESPACE}" \
     -f "${VALUES_FILE}" \
     -f "${SECRETS_FILE}" \
     --wait --timeout 5m
