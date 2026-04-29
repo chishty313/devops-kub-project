@@ -5,8 +5,15 @@ metadata:
   name: {{ include "laravel-k8s.namespace" . }}
   labels:
     {{- include "laravel-k8s.labels" . | nindent 4 }}
-  {{- with (include "laravel-k8s.annotations" .) }}
   annotations:
+    # Run as a pre-install/pre-upgrade hook so the Namespace is created
+    # *before* the rest of the release's namespaced resources (Deployment,
+    # Service, PVC, etc.) try to apply. Without this, Helm renders all
+    # templates together and fails because the Namespace doesn't exist yet.
+    # No hook-delete-policy: the namespace must persist across upgrades.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    {{- with (include "laravel-k8s.annotations" .) }}
     {{- . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 {{- end -}}
