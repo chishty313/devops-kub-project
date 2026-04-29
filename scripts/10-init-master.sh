@@ -90,8 +90,14 @@ cp -f /etc/kubernetes/admin.conf /root/.kube/config
 [[ -n "${SUDO_USER:-}" ]] && chown -R "${SUDO_USER}:${SUDO_USER}" "${TARGET_HOME}/.kube"
 
 # ---- Step 4: Calico CNI ----
-echo "[init-master] Installing Calico CNI ..."
-KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f \
+# IMPORTANT: must use --server-side --force-conflicts because the Tigera
+# operator's `installations.operator.tigera.io` CRD ships with very large
+# embedded OpenAPI schema annotations. Plain `kubectl apply -f` stuffs the
+# whole manifest into kubectl.kubernetes.io/last-applied-configuration,
+# which doubles the size and trips the 262144-byte annotation limit.
+# Server-Side Apply doesn't write that annotation, so the CRD goes through.
+echo "[init-master] Installing Calico CNI (server-side apply) ..."
+KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply --server-side --force-conflicts -f \
     https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
 
 cat <<EOF >/tmp/calico-installation.yaml
@@ -108,7 +114,7 @@ spec:
         natOutgoing: Enabled
         nodeSelector: all()
 EOF
-KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f /tmp/calico-installation.yaml
+KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply --server-side --force-conflicts -f /tmp/calico-installation.yaml
 
 # ---- Step 5: Save join commands for the other CPs and the workers ----
 echo "[init-master] Generating join commands ..."
