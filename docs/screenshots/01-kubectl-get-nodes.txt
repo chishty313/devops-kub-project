@@ -1,0 +1,6 @@
+NAME   STATUS   ROLES           AGE   VERSION    INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION       CONTAINER-RUNTIME
+cp1    Ready    control-plane   68m   v1.30.14   10.255.127.65    <none>        Ubuntu 22.04.5 LTS   5.15.0-173-generic   containerd://2.2.1
+cp2    Ready    control-plane   31m   v1.30.14   10.255.127.102   <none>        Ubuntu 22.04.5 LTS   5.15.0-173-generic   containerd://2.2.1
+cp3    Ready    control-plane   30m   v1.30.14   10.255.127.33    <none>        Ubuntu 22.04.5 LTS   5.15.0-173-generic   containerd://2.2.1
+w1     Ready    <none>          26m   v1.30.14   10.255.127.115   <none>        Ubuntu 22.04.5 LTS   5.15.0-173-generic   containerd://2.2.1
+w2     Ready    <none>          26m   v1.30.14   10.255.127.185   <none>        Ubuntu 22.04.5 LTS   5.15.0-173-generic   containerd://2.2.1

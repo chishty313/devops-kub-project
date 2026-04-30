@@ -1,0 +1,18 @@
+NAME                                                   READY   STATUS    RESTARTS   AGE
+pod/argocd-application-controller-0                    1/1     Running   0          8m28s
+pod/argocd-applicationset-controller-d47b9484-dc5wh    1/1     Running   0          8m30s
+pod/argocd-dex-server-594dcdbfd7-ljs42                 1/1     Running   0          8m30s
+pod/argocd-notifications-controller-66db7c8698-ckqjd   1/1     Running   0          17m
+pod/argocd-redis-64976c77f9-72tfg                      1/1     Running   0          17m
+pod/argocd-repo-server-744dfc6bd-bnqd5                 1/1     Running   0          8m30s
+pod/argocd-server-79c46d94bd-xdsbn                     1/1     Running   0          8m30s
+
+NAME                                       TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)             AGE
+service/argocd-applicationset-controller   ClusterIP   10.101.131.114   <none>        7000/TCP            17m
+service/argocd-dex-server                  ClusterIP   10.109.157.139   <none>        5556/TCP,5557/TCP   17m
+service/argocd-redis                       ClusterIP   10.104.110.67    <none>        6379/TCP            17m
+service/argocd-repo-server                 ClusterIP   10.111.198.15    <none>        8081/TCP            17m
+service/argocd-server                      ClusterIP   10.105.254.15    <none>        80/TCP,443/TCP      17m
+
+NAME                                      CLASS   HOSTS               ADDRESS          PORTS     AGE
+ingress.networking.k8s.io/argocd-server   nginx   argocd.chishty.me   10.255.127.115   80, 443   17m

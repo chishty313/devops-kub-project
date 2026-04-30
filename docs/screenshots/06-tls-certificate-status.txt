@@ -1,0 +1,8 @@
+NAME                                      READY   SECRET        AGE
+certificate.cert-manager.io/laravel-tls   True    laravel-tls   25m
+
+NAME                                               APPROVED   DENIED   READY   ISSUER             REQUESTOR                                         AGE
+certificaterequest.cert-manager.io/laravel-tls-1   True                True    letsencrypt-prod   system:serviceaccount:cert-manager:cert-manager   25m
+
+NAME                                                  STATE   AGE
+order.acme.cert-manager.io/laravel-tls-1-3517766891   valid   25m

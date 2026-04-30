@@ -1,0 +1,4 @@
+subject=CN = argocd.chishty.me
+issuer=C = US, O = Let's Encrypt, CN = R12
+notBefore=Apr 29 04:20:22 2026 GMT
+notAfter=Jul 28 04:20:21 2026 GMT

@@ -1,0 +1,2 @@
+NAMESPACE   NAME                  CLASS   HOSTS                                   ADDRESS          PORTS   AGE
+laravel     laravel-laravel-k8s   nginx   laravel-test.local,laravel.chishty.me   10.255.127.115   80      68s

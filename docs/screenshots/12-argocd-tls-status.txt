@@ -1,0 +1,2 @@
+NAME                                            READY   SECRET              AGE
+certificate.cert-manager.io/argocd-server-tls   True    argocd-server-tls   17m

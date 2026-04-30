@@ -1,0 +1,4 @@
+NAME       READY   STATUS    RESTARTS   AGE
+etcd-cp1   1/1     Running   0          68m
+etcd-cp2   1/1     Running   0          31m
+etcd-cp3   1/1     Running   0          31m
