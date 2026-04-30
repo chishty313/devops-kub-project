@@ -1,8 +1,28 @@
+# ArgoCD Application — laravel-k8s
+#
 # Apply with:
 #   kubectl apply -f k8s/argocd-application.yaml -n argocd
 #
-# Assumes ArgoCD is installed in the `argocd` namespace and has read access to
-# the GitHub repo below. Edit `repoURL` and `targetRevision` before applying.
+# Assumes ArgoCD is installed in the `argocd` namespace and has read access
+# to the GitHub repo below.
+#
+# About `helm.parameters[secret.appKey]` and `ignoreDifferences[Secret]`:
+#   The chart's templates/secret.yaml deliberately calls Helm's `fail` when
+#   secret.appKey is empty (see helm/laravel-k8s/templates/secret.yaml). The
+#   real APP_KEY lives only in the cluster's `laravel-laravel-k8s-env` Secret
+#   (created by scripts/40-install-helm-release.sh from the gitignored
+#   secrets.local.yaml). Git never sees the real key.
+#
+#   ArgoCD pulls the chart from git, has no access to secrets.local.yaml,
+#   and would therefore abort the render. We pass a *placeholder* APP_KEY
+#   here just to satisfy the `fail` guard during ArgoCD's render, and use
+#   `ignoreDifferences` on the Secret so ArgoCD will never push that
+#   placeholder into the cluster — the real key is preserved.
+#
+#   In production, replace this whole pattern with External Secrets
+#   Operator / Sealed-Secrets / Vault — the chart's Secret template is
+#   removed, the live Secret is synced from a real KMS, and ArgoCD's
+#   target state matches the cluster perfectly.
 
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -20,13 +40,12 @@ spec:
     path: helm/laravel-k8s
     helm:
       releaseName: laravel
-      # Override values from a separate file in the same repo.
-      # Create k8s/argocd-values.yaml (or similar) with non-secret overrides.
-      valueFiles:
-        - ../../helm/laravel-k8s/values.yaml
-      # Sensitive values (APP_KEY, etc.) should come from a Kubernetes Secret
-      # mounted by something like sealed-secrets, sops-secrets-operator, or
-      # external-secrets. NEVER commit the real APP_KEY to git.
+      parameters:
+        # Placeholder ONLY — see the long comment above. The real APP_KEY in
+        # the cluster comes from secrets.local.yaml, fed in via Helm install,
+        # and is shielded from sync by the ignoreDifferences block below.
+        - name: secret.appKey
+          value: "base64:cGxhY2Vob2xkZXItZm9yLWFyZ29jZC1yZW5kZXItb25seQ=="
 
   destination:
     server: https://kubernetes.default.svc
@@ -41,11 +60,24 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
       - PruneLast=true
+      - RespectIgnoreDifferences=true
     retry:
       limit: 5
       backoff:
         duration: 30s
         factor: 2
         maxDuration: 5m
+
+  # Don't ever overwrite the live `laravel-laravel-k8s-env` Secret. Its data
+  # holds the real APP_KEY and any DB credentials, which we manage outside
+  # GitOps for security (see comment at top of file).
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: laravel-laravel-k8s-env
+      namespace: laravel
+      jsonPointers:
+        - /data
+        - /stringData
 
   revisionHistoryLimit: 5
