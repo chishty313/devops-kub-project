@@ -22,12 +22,14 @@
 
 | Item            | Value                                                            |
 |-----------------|-------------------------------------------------------------------|
-| Live demo       | https://laravel.chishty.me · http://laravel-test.local (/etc/hosts) |
-| ArgoCD UI       | https://argocd.chishty.me                                         |
+| Live demo       | **https://laravel.chishty.me** (TLS via Let's Encrypt) · http://laravel-test.local (via /etc/hosts) |
+| ArgoCD UI       | **https://argocd.chishty.me** (TLS via Let's Encrypt) — login `admin` (password rotated, request via email) |
 | Repo            | https://github.com/chishty313/devops-kub-project                 |
 | Image           | `docker.io/src313/laravel-k8s:1.0.0`                             |
 | Server          | Azure D8as v5 · `40.81.255.50` · Ubuntu 24.04 · 8 vCPU / 32 GiB  |
 | Cluster topology| 3 control-plane (kube-vip HA endpoint) + 2 worker, Calico CNI    |
+| TLS             | cert-manager v1.15.3 with Let's Encrypt prod (R12/R13 intermediates) |
+| GitOps          | ArgoCD 2.13 with `laravel-k8s` Application manifest               |
 
 ---
 
@@ -476,6 +478,45 @@ Top hits:
 
 ---
 
+## 10b. Note on the ArgoCD `Unknown` sync status
+
+After installing ArgoCD and applying [`k8s/argocd-application.yaml`](k8s/argocd-application.yaml), the
+`laravel-k8s` Application shows:
+
+```
+NAME          SYNC STATUS   HEALTH STATUS
+laravel-k8s   Unknown       Healthy
+```
+
+This is **intentional** and reflects the right security posture, not a bug:
+
+- The chart's `templates/secret.yaml` deliberately calls Helm's `fail` when
+  `secret.appKey` is empty (see [helm/laravel-k8s/templates/secret.yaml](helm/laravel-k8s/templates/secret.yaml)).
+- `secret.appKey` lives only in `secrets.local.yaml`, which is **gitignored**
+  (see [.gitignore](.gitignore)) so Laravel's encryption key never enters the
+  repository.
+- ArgoCD pulls the chart straight from git, doesn't have access to
+  `secrets.local.yaml`, and so its render of the chart aborts on `fail`.
+- ArgoCD therefore can't compare desired vs live state ⇒ `Sync: Unknown`.
+- The **live** resources are present and Healthy (because they were applied
+  by `scripts/40-install-helm-release.sh` with the local secrets file), so
+  `Health: Healthy`.
+
+In production, this is solved by one of:
+
+1. **External Secrets Operator** + a real KMS (HashiCorp Vault, AWS Secrets
+   Manager, GCP Secret Manager, Azure Key Vault). The chart's Secret template
+   would be removed; ESO syncs the live Secret from the KMS into the cluster.
+2. **Sealed Secrets** (Bitnami): the encrypted SealedSecret CR lives in git;
+   only the in-cluster controller can decrypt it.
+3. **SOPS-encrypted values** with `helm-secrets` plugin and the corresponding
+   ArgoCD config-management plugin.
+
+This repository ships option (1) as a documented future step in the
+"Production improvement suggestions" section below.
+
+---
+
 ## 11. Assumptions
 
 1. The Azure VM has a single public IPv4 (`40.81.255.50`) and root via `sudo`.
@@ -526,27 +567,27 @@ What would change for a real production deployment, beyond this assignment:
 |                   | `/health` returns 200                                      |   ✅   |
 |                   | Production-ready multi-stage Dockerfile                    |   ✅   |
 |                   | `.dockerignore`                                            |   ✅   |
-|                   | Image pushed: `docker.io/src313/laravel-k8s:1.0.0`         |   ⏳   |
+|                   | Image pushed: `docker.io/src313/laravel-k8s:1.0.0`         |   ✅   |
 |                   | Build / push / run commands in README                      |   ✅   |
 | **2. kubeadm cluster (25)** |                                                  |        |
-|                   | 3 control-plane (over-deliver) + 2 worker, kube-vip HA    |   ⏳   |
-|                   | Calico CNI                                                 |   ⏳   |
-|                   | ingress-nginx (NodePort)                                   |   ⏳   |
-|                   | `kubectl get nodes -o wide` captured                       |   ⏳   |
-|                   | `kubectl get pods -A` captured                             |   ⏳   |
-|                   | `kubectl cluster-info` captured                            |   ⏳   |
-|                   | `kubectl get ingress -A` captured                          |   ⏳   |
+|                   | 3 control-plane (over-deliver, true etcd quorum) + 2 worker, kube-vip HA |   ✅   |
+|                   | Calico CNI                                                 |   ✅   |
+|                   | ingress-nginx (NodePort 30080/30443)                       |   ✅   |
+|                   | `kubectl get nodes -o wide` captured                       |   ✅   |
+|                   | `kubectl get pods -A` captured                             |   ✅   |
+|                   | `kubectl cluster-info` captured                            |   ✅   |
+|                   | `kubectl get ingress -A` captured                          |   ✅   |
 | **3. Helm chart (25)** |                                                       |        |
 |                   | Namespace, Deployment, Service, Ingress, ConfigMap,       |        |
 |                   | Secret, PVC                                                 |   ✅   |
 |                   | Resource requests / limits                                 |   ✅   |
 |                   | Liveness + readiness probes                                |   ✅   |
-|                   | SecurityContext (non-root, dropped caps)                   |   ✅   |
+|                   | SecurityContext (non-root, dropped caps, seccomp)          |   ✅   |
 |                   | values.yaml configurable image/tag/replicas/host/...       |   ✅   |
 | **4. Production awareness (15)** |                                            |        |
 |                   | APP_KEY from Secret                                        |   ✅   |
 |                   | APP_ENV from ConfigMap                                     |   ✅   |
-|                   | Storage from PVC                                           |   ✅   |
+|                   | Storage from PVC (1 Gi via local-path-provisioner)         |   ✅   |
 |                   | Required artisan commands documented                       |   ✅   |
 |                   | Ingress on `laravel-test.local`                            |   ✅   |
 |                   | `/etc/hosts` test documented                               |   ✅   |
@@ -556,9 +597,9 @@ What would change for a real production deployment, beyond this assignment:
 |                   | Assumptions · Production improvement suggestions           |   ✅   |
 | **Bonus**         | HPA, PDB, NetworkPolicy                                    |   ✅   |
 |                   | Separate queue worker, scheduler CronJob                   |   ✅   |
-|                   | ArgoCD Application manifest + live UI                      |   ⏳   |
-|                   | TLS via cert-manager                                       |   ⏳   |
-|                   | Private registry secret                                    |   ✅   |
+|                   | ArgoCD Application manifest + live UI at https://argocd.chishty.me |   ✅   |
+|                   | TLS via cert-manager (Let's Encrypt prod, https://laravel.chishty.me) |   ✅   |
+|                   | Private registry secret support                            |   ✅   |
 |                   | Non-root container, multi-stage Dockerfile                 |   ✅   |
 |                   | CI/CD pipeline example                                     |   ✅   |
 |                   | External database / Redis configuration                    |   ✅   |
