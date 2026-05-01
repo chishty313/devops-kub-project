@@ -66,7 +66,7 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Azure["Azure VM · 40.81.255.50 · Ubuntu 24.04 · 8 vCPU / 32 GiB"]
-        HN[Host nginx<br/>stream{} L4 forwarder<br/>:80, :443]
+        HN[Host nginx<br/>stream module<br/>L4 forwarder · :80, :443]
         subgraph K8s["multipass + KVM kubeadm cluster"]
             subgraph CP["Control plane · 3 nodes · stacked etcd quorum · kube-vip ARP HA"]
                 CP1[cp1 ⚡ leader<br/>etcd · apiserver · sched · ctrl-mgr]

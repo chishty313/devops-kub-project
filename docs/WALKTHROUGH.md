@@ -56,20 +56,20 @@ Key points:
 flowchart TB
     subgraph Azure["Azure VM · 40.81.255.50 · Ubuntu 24.04 · 8 vCPU / 32 GiB · /dev/kvm"]
         direction TB
-        HN[<b>Host nginx</b><br/>stream{} TCP forwarder<br/>:80, :443, :8081 internal healthz]
+        HN["Host nginx<br/>stream module · L4 TCP forwarder<br/>:80, :443, :8081 internal healthz"]
         subgraph Cluster["multipass + KVM nested cluster"]
             direction TB
-            subgraph CP["⚙️ Control plane · 3 nodes · stacked etcd quorum"]
+            subgraph CP["Control plane · 3 nodes · stacked etcd quorum"]
                 direction LR
                 CP1["cp1 ⚡ leader<br/>10.255.127.65<br/>etcd, apiserver,<br/>scheduler, ctrl-mgr,<br/>kube-vip"]
                 CP2["cp2<br/>10.255.127.102<br/>etcd, apiserver,<br/>scheduler, ctrl-mgr,<br/>kube-vip"]
                 CP3["cp3<br/>10.255.127.33<br/>etcd, apiserver,<br/>scheduler, ctrl-mgr,<br/>kube-vip"]
             end
-            VIP[["kube-vip ARP VIP<br/>10.255.127.250:6443<br/>(--control-plane-endpoint)"]]
+            VIP[["kube-vip ARP VIP<br/>10.255.127.250:6443<br/>--control-plane-endpoint"]]
             CP1 -. owns ARP for VIP .- VIP
             CP2 -. failover candidate .- VIP
             CP3 -. failover candidate .- VIP
-            subgraph Wks["🚀 Workers · 2 nodes"]
+            subgraph Wks["Workers · 2 nodes"]
                 direction LR
                 W1["w1<br/>10.255.127.115<br/>NodePort 30080/30443<br/>ingress-nginx pod<br/>Laravel pod 1"]
                 W2["w2<br/>10.255.127.185<br/>NodePort 30080/30443<br/>Laravel pod 2"]
@@ -143,11 +143,11 @@ The Azure VM only has 80/443 open externally. We use nginx's `stream{}` module (
 ```mermaid
 flowchart LR
     Pub[Public 40.81.255.50:443] --> HN
-    subgraph HN["Host nginx (1.24)"]
-        S[stream{}<br/>upstream k8s_https {<br/> server 10.255.127.115:30443<br/> server 10.255.127.185:30443<br/>}]
-        HC[http{}<br/>127.0.0.1:8081 /healthz]
+    subgraph HN["Host nginx 1.24"]
+        S["stream module<br/>upstream k8s_https<br/>· 10.255.127.115:30443<br/>· 10.255.127.185:30443"]
+        HC["http module<br/>127.0.0.1:8081 /healthz"]
     end
-    HN -->|TCP passthrough| Cluster[ingress-nginx<br/>terminates TLS w/<br/>laravel-tls cert]
+    HN -->|TCP passthrough| Cluster["ingress-nginx<br/>terminates TLS<br/>w/ laravel-tls cert"]
 ```
 
 The script [`scripts/25-setup-host-nginx.sh`](../scripts/25-setup-host-nginx.sh) installs `nginx-full` (which ships the stream module) and templates the worker IPs into the config.
