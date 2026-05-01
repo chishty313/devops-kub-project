@@ -23,7 +23,7 @@
 | Item            | Value                                                            |
 |-----------------|-------------------------------------------------------------------|
 | Live demo       | **https://laravel.chishty.me** (Let's Encrypt TLS) · http://laravel-test.local (via /etc/hosts) |
-| ArgoCD UI       | **https://argocd.chishty.me** — viewer login: `viewer` / `Reviewer-2026!` (read-only, can browse but cannot modify anything) |
+| ArgoCD UI       | **https://argocd.chishty.me** — login credentials available on request via email (`developers@niftyitsolution.com`) |
 | Repo            | https://github.com/chishty313/devops-kub-project                 |
 | Image           | `docker.io/src313/laravel-k8s:1.0.0`                             |
 | Server          | Azure D8as v5 · `40.81.255.50` · Ubuntu 24.04 · 8 vCPU / 32 GiB  |
