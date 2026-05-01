@@ -98,7 +98,7 @@ flowchart TB
 11. [Ingress configuration](#11-ingress-configuration)
 12. [Testing steps](#12-testing-steps)
 13. [Troubleshooting steps](#13-troubleshooting-steps)
-14. [Issues encountered & how we resolved them](#14-issues-encountered--how-we-resolved-them)
+14. [Issues encountered & how I resolved them](#14-issues-encountered--how-we-resolved-them)
 15. [Assumptions](#15-assumptions)
 16. [Production improvement suggestions](#16-production-improvement-suggestions)
 17. [Bonus features delivered](#17-bonus-features-delivered)
