@@ -125,7 +125,7 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
   tls:
-    enabled: false
+    enabled: true
     # When enabled, TLS is provisioned via cert-manager. Only the public
     # hostname goes into the TLS block — Let's Encrypt can't sign
     # `*.local` names. The `*.local` host stays HTTP only.
