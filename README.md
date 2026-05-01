@@ -788,11 +788,3 @@ This pattern is acceptable for a demo; **production should use External Secrets 
 |                                  | External database / Redis configuration toggles                            |   ✅   |
 
 ---
-
-## License
-
-Released under the [MIT License](LICENSE). © 2026 Nifty.
-
----
-
-_Maintainer: Nifty &lt;developers@niftyitsolution.com&gt;_
