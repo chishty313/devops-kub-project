@@ -22,14 +22,68 @@
 
 | Item            | Value                                                            |
 |-----------------|-------------------------------------------------------------------|
-| Live demo       | **https://laravel.chishty.me** (TLS via Let's Encrypt) · http://laravel-test.local (via /etc/hosts) |
-| ArgoCD UI       | **https://argocd.chishty.me** (TLS via Let's Encrypt) — login `admin` (password rotated, request via email) |
+| Live demo       | **https://laravel.chishty.me** (Let's Encrypt TLS) · http://laravel-test.local (via /etc/hosts) |
+| ArgoCD UI       | **https://argocd.chishty.me** — viewer login: `viewer` / `Reviewer-2026!` (read-only, can browse but cannot modify anything) |
 | Repo            | https://github.com/chishty313/devops-kub-project                 |
 | Image           | `docker.io/src313/laravel-k8s:1.0.0`                             |
 | Server          | Azure D8as v5 · `40.81.255.50` · Ubuntu 24.04 · 8 vCPU / 32 GiB  |
-| Cluster topology| 3 control-plane (kube-vip HA endpoint) + 2 worker, Calico CNI    |
+| Cluster topology| **3** control-plane (kube-vip HA endpoint) + **2** worker, Calico CNI |
 | TLS             | cert-manager v1.15.3 with Let's Encrypt prod (R12/R13 intermediates) |
-| GitOps          | ArgoCD 2.13 with `laravel-k8s` Application manifest               |
+| GitOps          | ArgoCD 2.13 with `laravel-k8s` Application — `Synced / Healthy`   |
+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+    User([👤 Browser]) -->|HTTPS :443| AzNSG[Azure NSG]
+    AzNSG --> HostNginx[Host nginx<br/>stream block<br/>L4 passthrough]
+    HostNginx -->|TCP| W1NP[Worker 1 :30443]
+    HostNginx -->|TCP| W2NP[Worker 2 :30443]
+    W1NP --> Ing[ingress-nginx<br/>TLS termination]
+    W2NP --> Ing
+    Ing -->|HTTP| Svc[Service<br/>laravel]
+    Svc --> P1[Laravel pod 1<br/>nginx+php-fpm]
+    Svc --> P2[Laravel pod 2<br/>nginx+php-fpm]
+    P1 -.envFrom.-> Sec[(Secret<br/>APP_KEY)]
+    P1 -.envFrom.-> CM[(ConfigMap<br/>APP_ENV)]
+    P1 -.mount.-> PVC[(PVC<br/>1Gi local-path)]
+    P2 -.envFrom.-> Sec
+    P2 -.envFrom.-> CM
+    P2 -.mount.-> PVC
+    CM2[cert-manager] -.HTTP-01<br/>challenge.-> Ing
+    LE[Let's Encrypt] -.validates.-> CM2
+    classDef accent fill:#22d3ee,color:#000;
+    classDef purple fill:#a78bfa,color:#fff;
+    classDef red fill:#FF2D20,color:#fff;
+    classDef green fill:#34d399,color:#000;
+    class User accent
+    class Ing purple
+    class P1 red
+    class P2 red
+    class LE green
+```
+
+```mermaid
+flowchart TB
+    subgraph Azure["Azure VM · 40.81.255.50 · Ubuntu 24.04 · 8 vCPU / 32 GiB"]
+        HN[Host nginx<br/>stream{} block<br/>:80, :443]
+        subgraph K8s["multipass + KVM kubeadm cluster"]
+            subgraph CP["Control plane · 3 nodes · stacked etcd quorum · kube-vip ARP HA VIP"]
+                CP1[cp1 ⚡ leader<br/>etcd, apiserver, scheduler, ctrl-mgr]
+                CP2[cp2<br/>etcd, apiserver, scheduler, ctrl-mgr]
+                CP3[cp3<br/>etcd, apiserver, scheduler, ctrl-mgr]
+            end
+            subgraph Wks["Workers · 2 nodes"]
+                W1[w1<br/>NodePort 30080/30443<br/>ingress-nginx · Laravel pod]
+                W2[w2<br/>NodePort 30080/30443<br/>Laravel pod]
+            end
+        end
+        HN --> W1
+        HN --> W2
+    end
+```
+
+A deeper visual walkthrough — including how each requirement was implemented, what every config decision means, and screenshots of every milestone — is in [**docs/WALKTHROUGH.md**](docs/WALKTHROUGH.md).
 
 ---
 
@@ -478,42 +532,51 @@ Top hits:
 
 ---
 
-## 10b. Note on the ArgoCD `Unknown` sync status
+## 10b. How the ArgoCD application stays `Synced` without leaking secrets
 
-After installing ArgoCD and applying [`k8s/argocd-application.yaml`](k8s/argocd-application.yaml), the
-`laravel-k8s` Application shows:
+The deployed `laravel-k8s` Application in ArgoCD shows:
 
 ```
 NAME          SYNC STATUS   HEALTH STATUS
-laravel-k8s   Unknown       Healthy
+laravel-k8s   Synced        Healthy
 ```
 
-This is **intentional** and reflects the right security posture, not a bug:
+…but that took deliberate work, because the chart's
+[`templates/secret.yaml`](helm/laravel-k8s/templates/secret.yaml) calls
+Helm's `fail` when `secret.appKey` is empty — and the real APP_KEY only
+ever lives in two places (the live Secret in the cluster, and
+`secrets.local.yaml` on the build host), **never in git**.
 
-- The chart's `templates/secret.yaml` deliberately calls Helm's `fail` when
-  `secret.appKey` is empty (see [helm/laravel-k8s/templates/secret.yaml](helm/laravel-k8s/templates/secret.yaml)).
-- `secret.appKey` lives only in `secrets.local.yaml`, which is **gitignored**
-  (see [.gitignore](.gitignore)) so Laravel's encryption key never enters the
-  repository.
-- ArgoCD pulls the chart straight from git, doesn't have access to
-  `secrets.local.yaml`, and so its render of the chart aborts on `fail`.
-- ArgoCD therefore can't compare desired vs live state ⇒ `Sync: Unknown`.
-- The **live** resources are present and Healthy (because they were applied
-  by `scripts/40-install-helm-release.sh` with the local secrets file), so
-  `Health: Healthy`.
+The pattern this repo uses to bridge GitOps with this constraint:
 
-In production, this is solved by one of:
+1. The `Application` manifest passes a **placeholder** APP_KEY via
+   `helm.parameters` so ArgoCD's `helm template` render succeeds. (The
+   placeholder string contains the literal text "placeholder".)
+2. The same `Application` manifest declares
+   [`ignoreDifferences`](k8s/argocd-application.yaml) on the live
+   `laravel-laravel-k8s-env` Secret's `/data` and `/stringData` fields, so
+   ArgoCD's reconciler never tries to push that placeholder over the real
+   key in the cluster.
+3. The real APP_KEY (and any future DB credentials) was injected into the
+   cluster by `scripts/40-install-helm-release.sh` from the gitignored
+   `secrets.local.yaml`. ArgoCD ignores the difference and the runtime
+   Secret stays untouched.
 
-1. **External Secrets Operator** + a real KMS (HashiCorp Vault, AWS Secrets
-   Manager, GCP Secret Manager, Azure Key Vault). The chart's Secret template
-   would be removed; ESO syncs the live Secret from the KMS into the cluster.
-2. **Sealed Secrets** (Bitnami): the encrypted SealedSecret CR lives in git;
-   only the in-cluster controller can decrypt it.
-3. **SOPS-encrypted values** with `helm-secrets` plugin and the corresponding
-   ArgoCD config-management plugin.
+This is acceptable for a demo / interview deliverable because it
+demonstrates awareness of the trade-off without ever exposing the key.
+For production, replace this pattern with one of:
 
-This repository ships option (1) as a documented future step in the
-"Production improvement suggestions" section below.
+1. **External Secrets Operator** + a real KMS (HashiCorp Vault, AWS
+   Secrets Manager, GCP Secret Manager, Azure Key Vault). The chart's
+   Secret template is removed entirely; ESO syncs the live Secret from
+   the KMS, ArgoCD compares cleanly, no placeholder needed.
+2. **Sealed Secrets** (Bitnami): the encrypted `SealedSecret` lives in
+   git; only the in-cluster controller can decrypt it.
+3. **SOPS-encrypted values** + the `helm-secrets` plugin + ArgoCD's
+   config-management plugin (CMP).
+
+`docs/WALKTHROUGH.md` walks through this trade-off in more detail with a
+diagram of the secret-flow.
 
 ---
 
